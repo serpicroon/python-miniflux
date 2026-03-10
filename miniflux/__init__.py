@@ -65,5 +65,3 @@ __all__ = [
     "BadRequest",
     "ServerError",
 ]
-
-__version__ = "1.2.0"
