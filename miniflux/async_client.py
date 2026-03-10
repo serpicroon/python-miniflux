@@ -20,9 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from typing import Optional
+from typing import Optional, Union
 
 import httpx
+import json
 
 from miniflux.base import _BaseClient, DEFAULT_USER_AGENT
 from miniflux.exceptions import (
@@ -222,8 +223,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint("/discover")
         data = dict(url=website_url)
         data.update(kwargs)
@@ -295,8 +294,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint("/categories")
         data = {"title": title}
         response = await self._request("post", endpoint, data=json.dumps(data))
@@ -316,8 +313,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint(f"/categories/{category_id}")
         data = {"id": category_id, "title": title}
         response = await self._request("put", endpoint, data=json.dumps(data))
@@ -478,8 +473,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint("/feeds")
         data = dict(feed_url=feed_url, category_id=category_id)
         data.update(kwargs)
@@ -500,8 +493,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint(f"/feeds/{feed_id}")
         data = self._get_modification_params(**kwargs)
         response = await self._request("put", endpoint, data=json.dumps(data))
@@ -654,8 +645,6 @@ class AsyncClient(_BaseClient):
             ValueError: If the URL is empty.
             ClientError: If the request fails.
         """
-        import json
-
         if not url:
             raise ValueError("url is required")
 
@@ -740,8 +729,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint(f"/entries/{entry_id}")
         data = self._get_modification_params(
             **{
@@ -766,8 +753,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint("/entries")
         data = {"entry_ids": entry_ids, "status": status}
         response = await self._request("put", endpoint, data=json.dumps(data))
@@ -855,8 +840,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint(f"/enclosures/{enclosure_id}")
         data = self._get_modification_params(media_progression=media_progression)
         response = await self._request("put", endpoint, data=json.dumps(data))
@@ -920,7 +903,7 @@ class AsyncClient(_BaseClient):
         """
         return await self._get_user(username)
 
-    async def _get_user(self, user_id_or_username) -> dict:
+    async def _get_user(self, user_id_or_username: Union[str, int]) -> dict:
         endpoint = self._get_endpoint(f"/users/{user_id_or_username}")
         response = await self._request("get", endpoint)
         if response.status_code == 200:
@@ -940,8 +923,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint("/users")
         data = {"username": username, "password": password, "is_admin": is_admin}
         response = await self._request("post", endpoint, data=json.dumps(data))
@@ -960,8 +941,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint(f"/users/{user_id}")
         data = self._get_modification_params(**kwargs)
         response = await self._request("put", endpoint, data=json.dumps(data))
@@ -1023,8 +1002,6 @@ class AsyncClient(_BaseClient):
         Raises:
             ClientError: If the request fails.
         """
-        import json
-
         endpoint = self._get_endpoint("/api-keys")
         data = {"description": description}
         response = await self._request("post", endpoint, data=json.dumps(data))
