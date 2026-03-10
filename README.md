@@ -98,67 +98,26 @@ with miniflux.Client("https://miniflux.domain.tld", api_key="secret") as clt:
 
 ### Asynchronous Client
 
-The library also provides an asynchronous client for use with `asyncio` and async frameworks like FastAPI, Starlette, or aiohttp.
-
 ```python
-import asyncio
 import miniflux
 
-async def main():
-    # Creating an async client
-    async with miniflux.AsyncClient("https://miniflux.example.org", api_key="My secret API token") as client:
-        # Get all feeds
-        feeds = await client.get_feeds()
+# Creating an async client
+client = miniflux.AsyncClient("https://miniflux.example.org", api_key="My secret API token")
 
-        # Refresh multiple feeds concurrently
-        await asyncio.gather(
-            client.refresh_feed(1),
-            client.refresh_feed(2),
-            client.refresh_feed(3),
-        )
+# Get all feeds
+feeds = await client.get_feeds()
 
-        # Fetch entries
-        entries = await client.get_entries(starred=True, limit=10)
+# Refresh a feed
+await client.refresh_feed(123)
 
-asyncio.run(main())
-```
-
-#### FastAPI Integration
-
-```python
-from fastapi import FastAPI
-import miniflux
-
-app = FastAPI()
-
-@app.on_event("startup")
-async def startup():
-    app.state.miniflux = miniflux.AsyncClient(
-        "https://miniflux.example.org",
-        api_key="secret"
-    )
-
-@app.on_event("shutdown")
-async def shutdown():
-    await app.state.miniflux.close()
-
-@app.get("/feeds")
-async def list_feeds():
-    return await app.state.miniflux.get_feeds()
-
-@app.get("/entries")
-async def list_entries():
-    return await app.state.miniflux.get_entries(limit=50)
+# Fetch 10 starred entries
+entries = await client.get_entries(starred=True, limit=10)
 ```
 
 Available Methods
 -----------------
 
 The following methods are available on the `miniflux.Client` (synchronous) and `miniflux.AsyncClient` (asynchronous) objects.
-
-**Note**: All methods on `AsyncClient` are async and must be called with `await`. For example:
-- Synchronous: `client.get_feeds()`
-- Asynchronous: `await client.get_feeds()`
 
 #### Application
 
@@ -231,7 +190,7 @@ The following methods are available on the `miniflux.Client` (synchronous) and `
 - `create_api_key(description: str)`
 - `delete_api_key(api_key_id: int)`
 
-Look at [miniflux.py](https://github.com/miniflux/python-client/blob/main/miniflux.py) for the complete list of methods and their detailed parameters.
+Look at the source code on [GitHub](https://github.com/miniflux/python-client) for the complete list of methods and their detailed parameters.
 
 Author
 ------
