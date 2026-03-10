@@ -14,7 +14,8 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-  "requests"
+  "requests",
+  "httpx>=0.24.0"
 ]
 
 [project.urls]

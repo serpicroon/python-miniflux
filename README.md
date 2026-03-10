@@ -9,6 +9,7 @@ Requirements
 - Miniflux >= 2.0.49
 - Python >= 3.8
 - requests
+- httpx >= 0.24.0
 
 This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
 
@@ -28,6 +29,8 @@ python3 -m unittest -v
 
 Examples
 --------
+
+### Synchronous Client
 
 ```python
 import miniflux
@@ -93,10 +96,69 @@ with miniflux.Client("https://miniflux.domain.tld", api_key="secret") as clt:
     clt.me()
 ```
 
+### Asynchronous Client
+
+The library also provides an asynchronous client for use with `asyncio` and async frameworks like FastAPI, Starlette, or aiohttp.
+
+```python
+import asyncio
+import miniflux
+
+async def main():
+    # Creating an async client
+    async with miniflux.AsyncClient("https://miniflux.example.org", api_key="My secret API token") as client:
+        # Get all feeds
+        feeds = await client.get_feeds()
+
+        # Refresh multiple feeds concurrently
+        await asyncio.gather(
+            client.refresh_feed(1),
+            client.refresh_feed(2),
+            client.refresh_feed(3),
+        )
+
+        # Fetch entries
+        entries = await client.get_entries(starred=True, limit=10)
+
+asyncio.run(main())
+```
+
+#### FastAPI Integration
+
+```python
+from fastapi import FastAPI
+import miniflux
+
+app = FastAPI()
+
+@app.on_event("startup")
+async def startup():
+    app.state.miniflux = miniflux.AsyncClient(
+        "https://miniflux.example.org",
+        api_key="secret"
+    )
+
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.miniflux.close()
+
+@app.get("/feeds")
+async def list_feeds():
+    return await app.state.miniflux.get_feeds()
+
+@app.get("/entries")
+async def list_entries():
+    return await app.state.miniflux.get_entries(limit=50)
+```
+
 Available Methods
 -----------------
 
-The following methods are available on the `miniflux.Client` object:
+The following methods are available on the `miniflux.Client` (synchronous) and `miniflux.AsyncClient` (asynchronous) objects.
+
+**Note**: All methods on `AsyncClient` are async and must be called with `await`. For example:
+- Synchronous: `client.get_feeds()`
+- Asynchronous: `await client.get_feeds()`
 
 #### Application
 
