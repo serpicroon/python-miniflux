@@ -104,7 +104,18 @@ class _BaseClient(ABC):
         """Close the underlying session."""
         pass
 
-    # Application Methods
+    def flush_history(self) -> bool:
+        """
+        Mark all read entries as removed excepted the starred ones.
+
+        Returns:
+            bool: True if the operation was successfully scheduled, False otherwise.
+        """
+        endpoint = self._get_endpoint("/flush-history")
+        response = self._request("delete", endpoint)
+        if response.status_code == 202:
+            return True
+        self._handle_error_response(response)
 
     def get_version(self) -> dict:
         """
@@ -121,22 +132,31 @@ class _BaseClient(ABC):
             return response.json()
         self._handle_error_response(response)
 
-    def get_integrations_status(self) -> bool:
+    def me(self) -> dict:
         """
-        Get the status of third-party integrations.
+        Get the authenticated user's information.
 
         Returns:
-            bool: True if at least one third-party integration is enabled, False otherwise.
+            A dictionary containing the user's information.
         Raises:
             ClientError: If the request fails.
         """
-        endpoint = self._get_endpoint("/integrations/status")
+        endpoint = self._get_endpoint("/me")
         response = self._request("get", endpoint)
         if response.status_code == 200:
-            return response.json()["has_integrations"]
+            return response.json()
         self._handle_error_response(response)
 
-    # Subscription Methods
+    def export(self) -> str:
+        """
+        Export the user's feeds in OPML format.
+
+        Returns:
+            str: The OPML data.
+        Raises:
+            ClientError: If the request fails.
+        """
+        return self.export_feeds()
 
     def export_feeds(self) -> str:
         """
@@ -152,17 +172,6 @@ class _BaseClient(ABC):
         if response.status_code == 200:
             return response.text
         self._handle_error_response(response)
-
-    def export(self) -> str:
-        """
-        Export the user's feeds in OPML format.
-
-        Returns:
-            str: The OPML data.
-        Raises:
-            ClientError: If the request fails.
-        """
-        return self.export_feeds()
 
     def import_feeds(self, opml: str) -> dict:
         """
@@ -200,143 +209,6 @@ class _BaseClient(ABC):
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
-
-    # Category Management Methods
-
-    def get_categories(self) -> List[dict]:
-        """
-        Fetch all categories.
-
-        Returns:
-            A list of dictionaries representing the categories.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint("/categories")
-        response = self._request("get", endpoint)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    def get_category_entry(self, category_id: int, entry_id: int) -> dict:
-        """
-        Fetch a single entry for a given category.
-
-        Args:
-            category_id (int): The category ID.
-            entry_id (int): The entry ID.
-        Returns:
-            A dictionary representing the entry.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/entries/{entry_id}")
-        response = self._request("get", endpoint)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    def get_category_entries(self, category_id: int, **kwargs) -> dict:
-        """
-        Fetch all entries for a given category.
-
-        Args:
-            category_id (int): The category ID.
-        Returns:
-            A list of dictionaries representing the entries.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/entries")
-        params = self._get_params(**kwargs)
-        response = self._request("get", endpoint, params=params)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    def create_category(self, title: str) -> dict:
-        """
-        Create a new category.
-
-        Args:
-            title (str): The category title.
-        Returns:
-            A dictionary representing the created category.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint("/categories")
-        data = {"title": title}
-        response = self._request("post", endpoint, data=json.dumps(data))
-        if response.status_code == 201:
-            return response.json()
-        self._handle_error_response(response)
-
-    def update_category(self, category_id: int, title: str) -> dict:
-        """
-        Update a category.
-
-        Args:
-            category_id (int): The category ID.
-            title (str): The category title.
-        Returns:
-            A dictionary representing the updated category.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}")
-        data = {"id": category_id, "title": title}
-        response = self._request("put", endpoint, data=json.dumps(data))
-        if response.status_code == 201:
-            return response.json()
-        self._handle_error_response(response)
-
-    def delete_category(self, category_id: int) -> None:
-        """
-        Delete a category.
-
-        Args:
-            category_id (int): The category ID.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}")
-        response = self._request("delete", endpoint)
-        if response.status_code != 204:
-            self._handle_error_response(response)
-
-    def mark_category_entries_as_read(self, category_id: int) -> None:
-        """
-        Mark all entries as read in the given category.
-
-        Args:
-            category_id (int): The category ID.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/mark-all-as-read")
-        response = self._request("put", endpoint)
-        if response.status_code != 204:
-            self._handle_error_response(response)
-
-    def refresh_category(self, category_id: int) -> bool:
-        """
-        Refreshes all feeds that belongs to the given category.
-
-        Args:
-            category_id (int): The category ID.
-        Returns:
-            bool: True if the operation was successfully scheduled, False otherwise.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/refresh")
-        response = self._request("put", endpoint)
-        if response.status_code >= 400:
-            self._handle_error_response(response)
-        return True
-
-    # Feed Management Methods
 
     def get_category_feeds(self, category_id: int) -> List[dict]:
         """
@@ -505,6 +377,23 @@ class _BaseClient(ABC):
             self._handle_error_response(response)
         return True
 
+    def refresh_category(self, category_id: int) -> bool:
+        """
+        Refreshes all feeds that belongs to the given category.
+
+        Args:
+            category_id (int): The category ID.
+        Returns:
+            bool: True if the operation was successfully scheduled, False otherwise.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/refresh")
+        response = self._request("put", endpoint)
+        if response.status_code >= 400:
+            self._handle_error_response(response)
+        return True
+
     def delete_feed(self, feed_id: int) -> None:
         """
         Delete a feed.
@@ -518,36 +407,6 @@ class _BaseClient(ABC):
         response = self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
-
-    def get_feed_counters(self) -> dict:
-        """
-        Get the number of read and unread entries per feed.
-
-        Returns:
-            A dictionary containing the number of read and unread entries per feed.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint("/feeds/counters")
-        response = self._request("get", endpoint)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    # Entry Management Methods
-
-    def flush_history(self) -> bool:
-        """
-        Mark all read entries as removed excepted the starred ones.
-
-        Returns:
-            bool: True if the operation was successfully scheduled, False otherwise.
-        """
-        endpoint = self._get_endpoint("/flush-history")
-        response = self._request("delete", endpoint)
-        if response.status_code == 202:
-            return True
-        self._handle_error_response(response)
 
     def get_feed_entry(self, feed_id: int, entry_id: int) -> dict:
         """
@@ -824,22 +683,121 @@ class _BaseClient(ABC):
             self._handle_error_response(response)
         return True
 
-    # User Management Methods
-
-    def me(self) -> dict:
+    def get_categories(self) -> List[dict]:
         """
-        Get the authenticated user's information.
+        Fetch all categories.
 
         Returns:
-            A dictionary containing the user's information.
+            A list of dictionaries representing the categories.
         Raises:
             ClientError: If the request fails.
         """
-        endpoint = self._get_endpoint("/me")
+        endpoint = self._get_endpoint("/categories")
         response = self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
+
+    def get_category_entry(self, category_id: int, entry_id: int) -> dict:
+        """
+        Fetch a single entry for a given category.
+
+        Args:
+            category_id (int): The category ID.
+            entry_id (int): The entry ID.
+        Returns:
+            A dictionary representing the entry.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/entries/{entry_id}")
+        response = self._request("get", endpoint)
+        if response.status_code == 200:
+            return response.json()
+        self._handle_error_response(response)
+
+    def get_category_entries(self, category_id: int, **kwargs) -> dict:
+        """
+        Fetch all entries for a given category.
+
+        Args:
+            category_id (int): The category ID.
+        Returns:
+            A list of dictionaries representing the entries.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/entries")
+        params = self._get_params(**kwargs)
+        response = self._request("get", endpoint, params=params)
+        if response.status_code == 200:
+            return response.json()
+        self._handle_error_response(response)
+
+    def create_category(self, title: str) -> dict:
+        """
+        Create a new category.
+
+        Args:
+            title (str): The category title.
+        Returns:
+            A dictionary representing the created category.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint("/categories")
+        data = {"title": title}
+        response = self._request("post", endpoint, data=json.dumps(data))
+        if response.status_code == 201:
+            return response.json()
+        self._handle_error_response(response)
+
+    def update_category(self, category_id: int, title: str) -> dict:
+        """
+        Update a category.
+
+        Args:
+            category_id (int): The category ID.
+            title (str): The category title.
+        Returns:
+            A dictionary representing the updated category.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}")
+        data = {"id": category_id, "title": title}
+        response = self._request("put", endpoint, data=json.dumps(data))
+        if response.status_code == 201:
+            return response.json()
+        self._handle_error_response(response)
+
+    def delete_category(self, category_id: int) -> None:
+        """
+        Delete a category.
+
+        Args:
+            category_id (int): The category ID.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}")
+        response = self._request("delete", endpoint)
+        if response.status_code != 204:
+            self._handle_error_response(response)
+
+    def mark_category_entries_as_read(self, category_id: int) -> None:
+        """
+        Mark all entries as read in the given category.
+
+        Args:
+            category_id (int): The category ID.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/mark-all-as-read")
+        response = self._request("put", endpoint)
+        if response.status_code != 204:
+            self._handle_error_response(response)
 
     def get_users(self) -> List[dict]:
         """
@@ -955,7 +913,35 @@ class _BaseClient(ABC):
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    # API Keys Methods
+    def get_feed_counters(self) -> dict:
+        """
+        Get the number of read and unread entries per feed.
+
+        Returns:
+            A dictionary containing the number of read and unread entries per feed.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint("/feeds/counters")
+        response = self._request("get", endpoint)
+        if response.status_code == 200:
+            return response.json()
+        self._handle_error_response(response)
+
+    def get_integrations_status(self) -> bool:
+        """
+        Get the status of third-party integrations.
+
+        Returns:
+            bool: True if at least one third-party integration is enabled, False otherwise.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint("/integrations/status")
+        response = self._request("get", endpoint)
+        if response.status_code == 200:
+            return response.json()["has_integrations"]
+        self._handle_error_response(response)
 
     def get_api_keys(self) -> List[dict]:
         """

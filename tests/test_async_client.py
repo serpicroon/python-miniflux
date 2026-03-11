@@ -974,6 +974,7 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
     async def test_async_client_close(self):
         mock_httpx_client = mock.Mock()
         mock_httpx_client.aclose = mock.AsyncMock()
+        mock_httpx_client.headers = {}
 
         client = miniflux.AsyncClient("http://localhost", username="username", password="password", http_client=mock_httpx_client)
 

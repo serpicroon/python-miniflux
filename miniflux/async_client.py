@@ -80,19 +80,13 @@ class AsyncClient(_BaseClient):
         """
         super().__init__(base_url, username, password, timeout, api_key, user_agent)
 
-        headers = {"User-Agent": user_agent}
-        if api_key:
-            headers["X-Auth-Token"] = api_key
+        self._client = http_client or httpx.AsyncClient()
 
-        if http_client is not None:
-            self._client = http_client
-        else:
-            auth = httpx.BasicAuth(username, password) if (username and password) else None
-            self._client = httpx.AsyncClient(
-                headers=headers,
-                auth=auth,
-                timeout=timeout,
-            )
+        self._client.headers.update({"User-Agent": user_agent})
+        if api_key:
+            self._client.headers["X-Auth-Token"] = api_key
+        elif username and password:
+            self._client.auth = httpx.BasicAuth(username, password)
 
     async def __aenter__(self):
         return self
@@ -125,6 +119,7 @@ class AsyncClient(_BaseClient):
         Returns:
             httpx.Response: The HTTP response object.
         """
+        kwargs.setdefault("timeout", self._timeout)
         method = method.lower()
         if method == "get":
             return await self._client.get(endpoint, **kwargs)
@@ -137,7 +132,24 @@ class AsyncClient(_BaseClient):
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
-    # Override methods that need to be async
+    async def close(self) -> None:
+        """
+        Close the underlying httpx async client
+        """
+        await self._client.aclose()
+
+    async def flush_history(self) -> bool:
+        """
+        Mark all read entries as removed excepted the starred ones.
+
+        Returns:
+            bool: True if the operation was successfully scheduled, False otherwise.
+        """
+        endpoint = self._get_endpoint("/flush-history")
+        response = await self._request("delete", endpoint)
+        if response.status_code == 202:
+            return True
+        self._handle_error_response(response)
 
     async def get_version(self) -> dict:
         """
@@ -154,20 +166,31 @@ class AsyncClient(_BaseClient):
             return response.json()
         self._handle_error_response(response)
 
-    async def get_integrations_status(self) -> bool:
+    async def me(self) -> dict:
         """
-        Get the status of third-party integrations.
+        Get the authenticated user's information.
 
         Returns:
-            bool: True if at least one third-party integration is enabled, False otherwise.
+            A dictionary containing the user's information.
         Raises:
             ClientError: If the request fails.
         """
-        endpoint = self._get_endpoint("/integrations/status")
+        endpoint = self._get_endpoint("/me")
         response = await self._request("get", endpoint)
         if response.status_code == 200:
-            return response.json()["has_integrations"]
+            return response.json()
         self._handle_error_response(response)
+
+    async def export(self) -> str:
+        """
+        Export the user's feeds in OPML format.
+
+        Returns:
+            str: The OPML data.
+        Raises:
+            ClientError: If the request fails.
+        """
+        return await self.export_feeds()
 
     async def export_feeds(self) -> str:
         """
@@ -183,17 +206,6 @@ class AsyncClient(_BaseClient):
         if response.status_code == 200:
             return response.text
         self._handle_error_response(response)
-
-    async def export(self) -> str:
-        """
-        Export the user's feeds in OPML format.
-
-        Returns:
-            str: The OPML data.
-        Raises:
-            ClientError: If the request fails.
-        """
-        return await self.export_feeds()
 
     async def import_feeds(self, opml: str) -> dict:
         """
@@ -231,139 +243,6 @@ class AsyncClient(_BaseClient):
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
-
-    async def get_categories(self) -> list:
-        """
-        Fetch all categories.
-
-        Returns:
-            A list of dictionaries representing the categories.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint("/categories")
-        response = await self._request("get", endpoint)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    async def get_category_entry(self, category_id: int, entry_id: int) -> dict:
-        """
-        Fetch a single entry for a given category.
-
-        Args:
-            category_id (int): The category ID.
-            entry_id (int): The entry ID.
-        Returns:
-            A dictionary representing the entry.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/entries/{entry_id}")
-        response = await self._request("get", endpoint)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    async def get_category_entries(self, category_id: int, **kwargs) -> dict:
-        """
-        Fetch all entries for a given category.
-
-        Args:
-            category_id (int): The category ID.
-        Returns:
-            A list of dictionaries representing the entries.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/entries")
-        params = self._get_params(**kwargs)
-        response = await self._request("get", endpoint, params=params)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    async def create_category(self, title: str) -> dict:
-        """
-        Create a new category.
-
-        Args:
-            title (str): The category title.
-        Returns:
-            A dictionary representing the created category.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint("/categories")
-        data = {"title": title}
-        response = await self._request("post", endpoint, data=json.dumps(data))
-        if response.status_code == 201:
-            return response.json()
-        self._handle_error_response(response)
-
-    async def update_category(self, category_id: int, title: str) -> dict:
-        """
-        Update a category.
-
-        Args:
-            category_id (int): The category ID.
-            title (str): The category title.
-        Returns:
-            A dictionary representing the updated category.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}")
-        data = {"id": category_id, "title": title}
-        response = await self._request("put", endpoint, data=json.dumps(data))
-        if response.status_code == 201:
-            return response.json()
-        self._handle_error_response(response)
-
-    async def delete_category(self, category_id: int) -> None:
-        """
-        Delete a category.
-
-        Args:
-            category_id (int): The category ID.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}")
-        response = await self._request("delete", endpoint)
-        if response.status_code != 204:
-            self._handle_error_response(response)
-
-    async def mark_category_entries_as_read(self, category_id: int) -> None:
-        """
-        Mark all entries as read in the given category.
-
-        Args:
-            category_id (int): The category ID.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/mark-all-as-read")
-        response = await self._request("put", endpoint)
-        if response.status_code != 204:
-            self._handle_error_response(response)
-
-    async def refresh_category(self, category_id: int) -> bool:
-        """
-        Refreshes all feeds that belongs to the given category.
-
-        Args:
-            category_id (int): The category ID.
-        Returns:
-            bool: True if the operation was successfully scheduled, False otherwise.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint(f"/categories/{category_id}/refresh")
-        response = await self._request("put", endpoint)
-        if response.status_code >= 400:
-            self._handle_error_response(response)
-        return True
 
     async def get_category_feeds(self, category_id: int) -> list:
         """
@@ -532,6 +411,23 @@ class AsyncClient(_BaseClient):
             self._handle_error_response(response)
         return True
 
+    async def refresh_category(self, category_id: int) -> bool:
+        """
+        Refreshes all feeds that belongs to the given category.
+
+        Args:
+            category_id (int): The category ID.
+        Returns:
+            bool: True if the operation was successfully scheduled, False otherwise.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/refresh")
+        response = await self._request("put", endpoint)
+        if response.status_code >= 400:
+            self._handle_error_response(response)
+        return True
+
     async def delete_feed(self, feed_id: int) -> None:
         """
         Delete a feed.
@@ -545,34 +441,6 @@ class AsyncClient(_BaseClient):
         response = await self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
-
-    async def get_feed_counters(self) -> dict:
-        """
-        Get the number of read and unread entries per feed.
-
-        Returns:
-            A dictionary containing the number of read and unread entries per feed.
-        Raises:
-            ClientError: If the request fails.
-        """
-        endpoint = self._get_endpoint("/feeds/counters")
-        response = await self._request("get", endpoint)
-        if response.status_code == 200:
-            return response.json()
-        self._handle_error_response(response)
-
-    async def flush_history(self) -> bool:
-        """
-        Mark all read entries as removed excepted the starred ones.
-
-        Returns:
-            bool: True if the operation was successfully scheduled, False otherwise.
-        """
-        endpoint = self._get_endpoint("/flush-history")
-        response = await self._request("delete", endpoint)
-        if response.status_code == 202:
-            return True
-        self._handle_error_response(response)
 
     async def get_feed_entry(self, feed_id: int, entry_id: int) -> dict:
         """
@@ -847,20 +715,121 @@ class AsyncClient(_BaseClient):
             self._handle_error_response(response)
         return True
 
-    async def me(self) -> dict:
+    async def get_categories(self) -> list:
         """
-        Get the authenticated user's information.
+        Fetch all categories.
 
         Returns:
-            A dictionary containing the user's information.
+            A list of dictionaries representing the categories.
         Raises:
             ClientError: If the request fails.
         """
-        endpoint = self._get_endpoint("/me")
+        endpoint = self._get_endpoint("/categories")
         response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
+
+    async def get_category_entry(self, category_id: int, entry_id: int) -> dict:
+        """
+        Fetch a single entry for a given category.
+
+        Args:
+            category_id (int): The category ID.
+            entry_id (int): The entry ID.
+        Returns:
+            A dictionary representing the entry.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/entries/{entry_id}")
+        response = await self._request("get", endpoint)
+        if response.status_code == 200:
+            return response.json()
+        self._handle_error_response(response)
+
+    async def get_category_entries(self, category_id: int, **kwargs) -> dict:
+        """
+        Fetch all entries for a given category.
+
+        Args:
+            category_id (int): The category ID.
+        Returns:
+            A list of dictionaries representing the entries.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/entries")
+        params = self._get_params(**kwargs)
+        response = await self._request("get", endpoint, params=params)
+        if response.status_code == 200:
+            return response.json()
+        self._handle_error_response(response)
+
+    async def create_category(self, title: str) -> dict:
+        """
+        Create a new category.
+
+        Args:
+            title (str): The category title.
+        Returns:
+            A dictionary representing the created category.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint("/categories")
+        data = {"title": title}
+        response = await self._request("post", endpoint, data=json.dumps(data))
+        if response.status_code == 201:
+            return response.json()
+        self._handle_error_response(response)
+
+    async def update_category(self, category_id: int, title: str) -> dict:
+        """
+        Update a category.
+
+        Args:
+            category_id (int): The category ID.
+            title (str): The category title.
+        Returns:
+            A dictionary representing the updated category.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}")
+        data = {"id": category_id, "title": title}
+        response = await self._request("put", endpoint, data=json.dumps(data))
+        if response.status_code == 201:
+            return response.json()
+        self._handle_error_response(response)
+
+    async def delete_category(self, category_id: int) -> None:
+        """
+        Delete a category.
+
+        Args:
+            category_id (int): The category ID.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}")
+        response = await self._request("delete", endpoint)
+        if response.status_code != 204:
+            self._handle_error_response(response)
+
+    async def mark_category_entries_as_read(self, category_id: int) -> None:
+        """
+        Mark all entries as read in the given category.
+
+        Args:
+            category_id (int): The category ID.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint(f"/categories/{category_id}/mark-all-as-read")
+        response = await self._request("put", endpoint)
+        if response.status_code != 204:
+            self._handle_error_response(response)
 
     async def get_users(self) -> list:
         """
@@ -976,6 +945,36 @@ class AsyncClient(_BaseClient):
         if response.status_code != 204:
             self._handle_error_response(response)
 
+    async def get_feed_counters(self) -> dict:
+        """
+        Get the number of read and unread entries per feed.
+
+        Returns:
+            A dictionary containing the number of read and unread entries per feed.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint("/feeds/counters")
+        response = await self._request("get", endpoint)
+        if response.status_code == 200:
+            return response.json()
+        self._handle_error_response(response)
+
+    async def get_integrations_status(self) -> bool:
+        """
+        Get the status of third-party integrations.
+
+        Returns:
+            bool: True if at least one third-party integration is enabled, False otherwise.
+        Raises:
+            ClientError: If the request fails.
+        """
+        endpoint = self._get_endpoint("/integrations/status")
+        response = await self._request("get", endpoint)
+        if response.status_code == 200:
+            return response.json()["has_integrations"]
+        self._handle_error_response(response)
+
     async def get_api_keys(self) -> list:
         """
         Get all API keys for the current user.
@@ -1022,9 +1021,3 @@ class AsyncClient(_BaseClient):
         response = await self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
-
-    async def close(self) -> None:
-        """
-        Close the underlying httpx async client
-        """
-        await self._client.aclose()
