@@ -36,7 +36,6 @@ from miniflux import (
 )
 
 
-
 class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
     def test_get_error_reason(self):
         response = mock.Mock()
@@ -104,7 +103,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
 
         result = await client.flush_history()
 
-        client._request.assert_called_once_with("delete", "http://localhost/v1/flush-history")
+        client._request.assert_called_once_with(
+            "delete", "http://localhost/v1/flush-history"
+        )
         self.assertTrue(result)
 
     async def test_get_version(self):
@@ -137,7 +138,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.me()
@@ -149,20 +152,26 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response = mock.Mock()
         response.status_code = 500
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(ClientError):
             await client.me()
 
     async def test_discover(self):
-        expected_result = [{"url": "http://example.org/feed", "title": "Example", "type": "RSS"}]
+        expected_result = [
+            {"url": "http://example.org/feed", "title": "Example", "type": "RSS"}
+        ]
 
         response = mock.Mock()
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.discover("http://example.org/")
@@ -171,13 +180,17 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, expected_result)
 
     async def test_discover_with_credentials(self):
-        expected_result = [{"url": "http://example.org/feed", "title": "Example", "type": "RSS"}]
+        expected_result = [
+            {"url": "http://example.org/feed", "title": "Example", "type": "RSS"}
+        ]
 
         response = mock.Mock()
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.discover(
@@ -197,7 +210,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 500
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(ClientError):
@@ -210,7 +225,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.text = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.export()
@@ -224,12 +241,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response = mock.Mock()
         response.status_code = 201
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         await client.import_feeds(input_data)
 
-        client._request.assert_called_once_with("post", "http://localhost/v1/import", data=input_data)
+        client._request.assert_called_once_with(
+            "post", "http://localhost/v1/import", data=input_data
+        )
 
     async def test_import_failure(self):
         input_data = "my opml data"
@@ -238,7 +259,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 500
         response.json.return_value = {"error_message": "random error"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(ClientError):
@@ -251,7 +274,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_feed(123)
@@ -270,12 +295,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_icon_by_feed_id(123)
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/feeds/123/icon")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/feeds/123/icon"
+        )
         self.assertEqual(result, expected_result)
 
     async def test_get_icon(self):
@@ -289,7 +318,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_icon(11)
@@ -304,7 +335,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.create_feed("http://example.org/feed", 123)
@@ -319,7 +352,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.create_feed("http://example.org/feed")
@@ -334,10 +369,14 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
-        result = await client.create_feed("http://example.org/feed", 123, username="foobar", password="secret")
+        result = await client.create_feed(
+            "http://example.org/feed", 123, username="foobar", password="secret"
+        )
 
         client._request.assert_called_once()
         self.assertEqual(result, expected_result["feed_id"])
@@ -349,7 +388,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.create_feed("http://example.org/feed", 123, crawler=True)
@@ -364,10 +405,14 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
-        result = await client.create_feed("http://example.org/feed", 123, crawler=False, user_agent="GoogleBot")
+        result = await client.create_feed(
+            "http://example.org/feed", 123, crawler=False, user_agent="GoogleBot"
+        )
 
         client._request.assert_called_once()
         self.assertEqual(result, expected_result["feed_id"])
@@ -379,7 +424,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.update_feed(123, crawler=True, username="test")
@@ -394,12 +441,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.refresh_all_feeds()
 
-        client._request.assert_called_once_with("put", "http://localhost/v1/feeds/refresh")
+        client._request.assert_called_once_with(
+            "put", "http://localhost/v1/feeds/refresh"
+        )
         assert result == expected_result
 
     async def test_refresh_feed(self):
@@ -409,12 +460,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.refresh_feed(123)
 
-        client._request.assert_called_once_with("put", "http://localhost/v1/feeds/123/refresh")
+        client._request.assert_called_once_with(
+            "put", "http://localhost/v1/feeds/123/refresh"
+        )
         assert result == expected_result
 
     async def test_refresh_category(self):
@@ -424,12 +479,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.refresh_category(123)
 
-        client._request.assert_called_once_with("put", "http://localhost/v1/categories/123/refresh")
+        client._request.assert_called_once_with(
+            "put", "http://localhost/v1/categories/123/refresh"
+        )
         assert result == expected_result
 
     async def test_get_feed_entry(self):
@@ -439,12 +498,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_feed_entry(123, 456)
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/feeds/123/entries/456")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/feeds/123/entries/456"
+        )
         assert result == expected_result
 
     async def test_get_feed_entries(self):
@@ -454,7 +517,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_feed_entries(123)
@@ -469,7 +534,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_feed_entries(123, direction="asc")
@@ -484,7 +551,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.import_entry(
@@ -506,7 +575,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.import_entry(
@@ -525,7 +596,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.import_entry(123, url="http://example.org/article.html")
@@ -534,7 +607,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, expected_result)
 
     async def test_import_entry_without_url(self):
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
 
         with self.assertRaises(ValueError):
             await client.import_entry(123, url="")
@@ -548,7 +623,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
 
         await client.mark_feed_entries_as_read(123)
 
-        client._request.assert_called_once_with("put", "http://localhost/v1/feeds/123/mark-all-as-read")
+        client._request.assert_called_once_with(
+            "put", "http://localhost/v1/feeds/123/mark-all-as-read"
+        )
 
     async def test_mark_category_entries_as_read(self):
         response = mock.Mock()
@@ -559,7 +636,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
 
         await client.mark_category_entries_as_read(123)
 
-        client._request.assert_called_once_with("put", "http://localhost/v1/categories/123/mark-all-as-read")
+        client._request.assert_called_once_with(
+            "put", "http://localhost/v1/categories/123/mark-all-as-read"
+        )
 
     async def test_mark_user_entries_as_read(self):
         response = mock.Mock()
@@ -570,7 +649,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
 
         await client.mark_user_entries_as_read(123)
 
-        client._request.assert_called_once_with("put", "http://localhost/v1/users/123/mark-all-as-read")
+        client._request.assert_called_once_with(
+            "put", "http://localhost/v1/users/123/mark-all-as-read"
+        )
 
     async def test_get_entry(self):
         expected_result = []
@@ -579,12 +660,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_entry(123)
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/entries/123")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/entries/123"
+        )
         assert result == expected_result
 
     async def test_fetch_entry_content(self):
@@ -594,12 +679,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.fetch_entry_content(123)
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/entries/123/fetch-content")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/entries/123/fetch-content"
+        )
         assert result == expected_result
 
     async def test_get_entries(self):
@@ -609,7 +698,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_entries(status="unread", limit=10, offset=5)
@@ -625,7 +716,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_entries(before=param_value)
@@ -640,7 +733,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_entries(starred=True)
@@ -655,7 +750,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_entries(starred=False, after_entry_id=123)
@@ -670,7 +767,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_user_by_id(123)
@@ -683,7 +782,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 404
         response.json.return_value = {"error_message": "some error"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(ResourceNotFound):
@@ -696,12 +797,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_user_by_username("foobar")
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/users/foobar")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/users/foobar"
+        )
         assert result == expected_result
 
     async def test_update_user(self):
@@ -711,7 +816,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.update_user(123, theme="black", language="fr_FR")
@@ -743,7 +850,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
 
         result = await client.save_entry(123)
 
-        client._request.assert_called_once_with("post", "http://localhost/v1/entries/123/save")
+        client._request.assert_called_once_with(
+            "post", "http://localhost/v1/entries/123/save"
+        )
         self.assertEqual(result, expected_result)
 
     async def test_get_category_entry(self):
@@ -753,12 +862,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_category_entry(123, 456)
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/categories/123/entries/456")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/categories/123/entries/456"
+        )
         assert result == expected_result
 
     async def test_get_category_entries(self):
@@ -768,7 +881,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_category_entries(123)
@@ -783,7 +898,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.update_entry(entry_id=123, title="New title")
@@ -798,7 +915,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 201
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.update_entry(entry_id=123, content="New content")
@@ -810,7 +929,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response = mock.Mock()
         response.status_code = 204
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.update_entries(entry_ids=[123, 456], status="read")
@@ -825,19 +946,25 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_enclosure(123)
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/enclosures/123")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/enclosures/123"
+        )
         self.assertEqual(result, expected_result)
 
     async def test_update_enclosure(self):
         response = mock.Mock()
         response.status_code = 204
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.update_enclosure(123, media_progression=42)
@@ -852,12 +979,16 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 200
         response.json.return_value = expected_result
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         result = await client.get_integrations_status()
 
-        client._request.assert_called_once_with("get", "http://localhost/v1/integrations/status")
+        client._request.assert_called_once_with(
+            "get", "http://localhost/v1/integrations/status"
+        )
         self.assertTrue(result)
 
     async def test_get_api_keys(self):
@@ -899,14 +1030,18 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
 
         await client.delete_api_key(1)
 
-        client._request.assert_called_once_with("delete", "http://localhost/v1/api-keys/1")
+        client._request.assert_called_once_with(
+            "delete", "http://localhost/v1/api-keys/1"
+        )
 
     async def test_not_found_response(self):
         response = mock.Mock()
         response.status_code = 404
         response.json.return_value = {"error_message": "Not found"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(ResourceNotFound):
@@ -917,7 +1052,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 401
         response.json.return_value = {"error_message": "Unauthorized"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(AccessUnauthorized):
@@ -928,7 +1065,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 403
         response.json.return_value = {"error_message": "Forbidden"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(AccessForbidden):
@@ -939,7 +1078,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 400
         response.json.return_value = {"error_message": "Bad request"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(BadRequest):
@@ -950,7 +1091,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 500
         response.json.return_value = {"error_message": "Server error"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
 
         with self.assertRaises(ServerError):
@@ -961,7 +1104,9 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         response.status_code = 500
         response.json.return_value = {"error_message": "Server error"}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password")
+        client = miniflux.AsyncClient(
+            "http://localhost", username="username", password="password"
+        )
         client._request = mock.AsyncMock(return_value=response)
         client.close = mock.AsyncMock()
 
@@ -976,7 +1121,12 @@ class TestMinifluxAsyncClient(unittest.IsolatedAsyncioTestCase):
         mock_httpx_client.aclose = mock.AsyncMock()
         mock_httpx_client.headers = {}
 
-        client = miniflux.AsyncClient("http://localhost", username="username", password="password", http_client=mock_httpx_client)
+        client = miniflux.AsyncClient(
+            "http://localhost",
+            username="username",
+            password="password",
+            http_client=mock_httpx_client,
+        )
 
         await client.close()
 

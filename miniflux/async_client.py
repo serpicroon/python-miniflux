@@ -340,7 +340,9 @@ class AsyncClient(_BaseClient):
         """
         return await self.get_feed_icon(feed_id)
 
-    async def create_feed(self, feed_url: str, category_id: Optional[int] = None, **kwargs) -> int:
+    async def create_feed(
+        self, feed_url: str, category_id: Optional[int] = None, **kwargs
+    ) -> int:
         """
         Create a new feed.
 
@@ -584,7 +586,9 @@ class AsyncClient(_BaseClient):
             return response.json()
         self._handle_error_response(response)
 
-    async def update_entry(self, entry_id: int, title: Optional[str] = None, content: Optional[str] = None) -> dict:
+    async def update_entry(
+        self, entry_id: int, title: Optional[str] = None, content: Optional[str] = None
+    ) -> dict:
         """
         Update an entry.
 
@@ -696,7 +700,9 @@ class AsyncClient(_BaseClient):
             return response.json()
         self._handle_error_response(response)
 
-    async def update_enclosure(self, enclosure_id: int, media_progression: Optional[int] = None) -> bool:
+    async def update_enclosure(
+        self, enclosure_id: int, media_progression: Optional[int] = None
+    ) -> bool:
         """
         Update an enclosure.
 
@@ -879,7 +885,9 @@ class AsyncClient(_BaseClient):
             return response.json()
         self._handle_error_response(response)
 
-    async def create_user(self, username: str, password: str, is_admin: bool = False) -> dict:
+    async def create_user(
+        self, username: str, password: str, is_admin: bool = False
+    ) -> dict:
         """
         Create a new user.
 

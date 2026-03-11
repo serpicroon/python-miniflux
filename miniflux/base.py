@@ -67,10 +67,14 @@ class _BaseClient(ABC):
             ValueError: If neither `api_key` nor both `username` and `password` are provided.
         """
         if not base_url.startswith(("http://", "https://")):
-            raise ValueError("base_url must be a valid URL starting with http:// or https://")
+            raise ValueError(
+                "base_url must be a valid URL starting with http:// or https://"
+            )
 
         if not api_key and not (username and password):
-            raise ValueError("Either api_key or both username and password must be provided")
+            raise ValueError(
+                "Either api_key or both username and password must be provided"
+            )
 
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
@@ -306,7 +310,9 @@ class _BaseClient(ABC):
         """
         return self.get_feed_icon(feed_id)
 
-    def create_feed(self, feed_url: str, category_id: Optional[int] = None, **kwargs) -> int:
+    def create_feed(
+        self, feed_url: str, category_id: Optional[int] = None, **kwargs
+    ) -> int:
         """
         Create a new feed.
 
@@ -552,7 +558,9 @@ class _BaseClient(ABC):
             return response.json()
         self._handle_error_response(response)
 
-    def update_entry(self, entry_id: int, title: Optional[str] = None, content: Optional[str] = None) -> dict:
+    def update_entry(
+        self, entry_id: int, title: Optional[str] = None, content: Optional[str] = None
+    ) -> dict:
         """
         Update an entry.
 
@@ -664,7 +672,9 @@ class _BaseClient(ABC):
             return response.json()
         self._handle_error_response(response)
 
-    def update_enclosure(self, enclosure_id: int, media_progression: Optional[int] = None) -> bool:
+    def update_enclosure(
+        self, enclosure_id: int, media_progression: Optional[int] = None
+    ) -> bool:
         """
         Update an enclosure.
 
