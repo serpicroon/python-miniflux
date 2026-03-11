@@ -190,7 +190,7 @@ The following methods are available on the `miniflux.Client` (synchronous) and `
 - `create_api_key(description: str)`
 - `delete_api_key(api_key_id: int)`
 
-Look at the source code on [GitHub](https://github.com/miniflux/python-client) for the complete list of methods and their detailed parameters.
+Look at the source code on [GitHub](https://github.com/miniflux/python-client/blob/main/miniflux/base.py) for the complete list of methods and their detailed parameters.
 
 Author
 ------
