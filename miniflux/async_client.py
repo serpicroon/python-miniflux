@@ -20,88 +20,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from typing import Optional, Union
+
+import httpx
 import json
-from typing import List, Optional, Union
 
-import requests
+from miniflux.base import _BaseClient, DEFAULT_USER_AGENT
+from miniflux.exceptions import (
+    ClientError,
+    ResourceNotFound,
+    AccessForbidden,
+    AccessUnauthorized,
+    BadRequest,
+    ServerError,
+)
 
 
-DEFAULT_USER_AGENT = "Miniflux Python Client Library"
-
-
-class ClientError(Exception):
+class AsyncClient(_BaseClient):
     """
-    Exception raised when the API client receives an error response from the server.
+    Miniflux API asynchronous client.
 
-    Attributes:
-        status_code (int): The HTTP status code of the error response.
+    This client provides async/await support for all API methods,
+    allowing for concurrent requests and better performance in async applications.
+
+    Example usage:
+        async with miniflux.AsyncClient("https://miniflux.example.org", api_key="secret") as client:
+            feeds = await client.get_feeds()
     """
-
-    def __init__(self, response: requests.Response):
-        self.status_code = response.status_code
-        self._response = response
-
-    def get_error_reason(self) -> str:
-        """
-        Returns the error message from the response body, or a default message if not available.
-
-        Returns:
-            str: The error message from the response body, or a default message if not available.
-        """
-        default_reason = f"status_code={self.status_code}"
-        if self._response.headers.get("Content-Type") == "application/json":
-            result = self._response.json()
-            if isinstance(result, dict):
-                return result.get("error_message", default_reason)
-        return default_reason
-
-
-class ResourceNotFound(ClientError):
-    """
-    Exception raised when the API client receives a 404 response from the server.
-    """
-
-    pass
-
-
-class AccessForbidden(ClientError):
-    """
-    Exception raised when the API client receives a 403 response from the server.
-    """
-
-    pass
-
-
-class AccessUnauthorized(ClientError):
-    """
-    Exception raised when the API client receives a 401 response from the server.
-    """
-
-    pass
-
-
-class BadRequest(ClientError):
-    """
-    Exception raised when the API client receives a 400 response from the server.
-    """
-
-    pass
-
-
-class ServerError(ClientError):
-    """
-    Exception raised when the API client receives a 500 response from the server.
-    """
-
-    pass
-
-
-class Client:
-    """
-    Miniflux API client.
-    """
-
-    API_VERSION = 1
 
     def __init__(
         self,
@@ -111,10 +56,10 @@ class Client:
         timeout: float = 30.0,
         api_key: Optional[str] = None,
         user_agent: str = DEFAULT_USER_AGENT,
-        session: Optional[requests.Session] = None,
+        http_client: Optional[httpx.AsyncClient] = None,
     ):
         """
-        Initializes the Miniflux API client.
+        Initializes the Miniflux API async client.
 
         Args:
             base_url (str): The base URL of the Miniflux API. Must start with "http://" or "https://".
@@ -127,45 +72,29 @@ class Client:
                                      If provided, takes precedence over `username` and `password`.
             user_agent (str): The User-Agent string to use for API requests.
                               Default is "Miniflux Python Client Library".
-            session (requests.Session): A custom requests session to use for API requests.
+            http_client (httpx.AsyncClient): A custom httpx async client to use for API requests.
 
         Raises:
             ValueError: If `base_url` is not a valid URL starting with "http://" or "https://".
             ValueError: If neither `api_key` nor both `username` and `password` are provided.
         """
-        if not base_url.startswith(("http://", "https://")):
-            raise ValueError("base_url must be a valid URL starting with http:// or https://")
+        super().__init__(base_url, username, password, timeout, api_key, user_agent)
 
-        if not api_key and not (username and password):
-            raise ValueError("Either api_key or both username and password must be provided")
+        self._client = http_client or httpx.AsyncClient()
 
-        self._base_url = base_url.rstrip("/")
-        self._timeout = timeout
-        self._session = session or requests.Session()
-
-        self._session.headers.update({"User-Agent": user_agent})
+        self._client.headers.update({"User-Agent": user_agent})
         if api_key:
-            self._session.headers.update({"X-Auth-Token": api_key})
+            self._client.headers["X-Auth-Token"] = api_key
         elif username and password:
-            self._session.auth = (username, password)
+            self._client.auth = httpx.BasicAuth(username, password)
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    async def __aexit__(self, *args):
+        await self.close()
 
-    def _get_endpoint(self, path: str) -> str:
-        return f"{self._base_url}/v{self.API_VERSION}{path}"
-
-    def _get_params(self, **kwargs) -> Optional[dict]:
-        params = {k: v for k, v in kwargs.items() if v}
-        return params if len(params) > 0 else None
-
-    def _get_modification_params(self, **kwargs) -> dict:
-        return {k: v for k, v in kwargs.items() if v is not None}
-
-    def _handle_error_response(self, response: requests.Response):
+    def _handle_error_response(self, response: httpx.Response):
         if response.status_code == 404:
             raise ResourceNotFound(response)
         if response.status_code == 403:
@@ -178,7 +107,38 @@ class Client:
             raise ServerError(response)
         raise ClientError(response)
 
-    def flush_history(self) -> bool:
+    async def _request(self, method: str, endpoint: str, **kwargs):
+        """
+        Make an async HTTP request using the httpx library.
+
+        Args:
+            method (str): The HTTP method (get, post, put, delete).
+            endpoint (str): The API endpoint.
+            **kwargs: Additional arguments to pass to the request method.
+
+        Returns:
+            httpx.Response: The HTTP response object.
+        """
+        kwargs.setdefault("timeout", self._timeout)
+        method = method.lower()
+        if method == "get":
+            return await self._client.get(endpoint, **kwargs)
+        elif method == "post":
+            return await self._client.post(endpoint, **kwargs)
+        elif method == "put":
+            return await self._client.put(endpoint, **kwargs)
+        elif method == "delete":
+            return await self._client.delete(endpoint, **kwargs)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+    async def close(self) -> None:
+        """
+        Close the underlying httpx async client
+        """
+        await self._client.aclose()
+
+    async def flush_history(self) -> bool:
         """
         Mark all read entries as removed excepted the starred ones.
 
@@ -186,12 +146,12 @@ class Client:
             bool: True if the operation was successfully scheduled, False otherwise.
         """
         endpoint = self._get_endpoint("/flush-history")
-        response = self._session.delete(endpoint, timeout=self._timeout)
+        response = await self._request("delete", endpoint)
         if response.status_code == 202:
             return True
         self._handle_error_response(response)
 
-    def get_version(self) -> dict:
+    async def get_version(self) -> dict:
         """
         Get the version information of the Miniflux instance.
 
@@ -201,12 +161,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/version")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def me(self) -> dict:
+    async def me(self) -> dict:
         """
         Get the authenticated user's information.
 
@@ -216,12 +176,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/me")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def export(self) -> str:
+    async def export(self) -> str:
         """
         Export the user's feeds in OPML format.
 
@@ -230,9 +190,9 @@ class Client:
         Raises:
             ClientError: If the request fails.
         """
-        return self.export_feeds()
+        return await self.export_feeds()
 
-    def export_feeds(self) -> str:
+    async def export_feeds(self) -> str:
         """
         Export the user's feeds in OPML format.
 
@@ -242,12 +202,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/export")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.text
         self._handle_error_response(response)
 
-    def import_feeds(self, opml: str) -> dict:
+    async def import_feeds(self, opml: str) -> dict:
         """
         Import feeds from an OPML file.
 
@@ -259,16 +219,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/import")
-        response = self._session.post(
-            endpoint,
-            data=opml,
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=opml)
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def discover(self, website_url: str, **kwargs) -> List[dict]:
+    async def discover(self, website_url: str, **kwargs) -> list:
         """
         Discover feeds from a website.
 
@@ -283,16 +239,12 @@ class Client:
         data = dict(url=website_url)
         data.update(kwargs)
 
-        response = self._session.post(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=json.dumps(data))
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_category_feeds(self, category_id: int) -> List[dict]:
+    async def get_category_feeds(self, category_id: int) -> list:
         """
         Retrieves a list of feeds for a given category.
 
@@ -304,12 +256,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}/feeds")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_feeds(self) -> List[dict]:
+    async def get_feeds(self) -> list:
         """
         Retrieves a list of all feeds.
 
@@ -319,12 +271,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/feeds")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_feed(self, feed_id: int) -> dict:
+    async def get_feed(self, feed_id: int) -> dict:
         """
         Retrieves a feed.
 
@@ -336,12 +288,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_feed_icon(self, feed_id: int) -> dict:
+    async def get_feed_icon(self, feed_id: int) -> dict:
         """
         Retrieves a feed icon.
 
@@ -353,12 +305,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}/icon")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_icon(self, icon_id: int) -> dict:
+    async def get_icon(self, icon_id: int) -> dict:
         """
         Retrieves a feed icon.
 
@@ -370,12 +322,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/icons/{icon_id}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_icon_by_feed_id(self, feed_id: int) -> dict:
+    async def get_icon_by_feed_id(self, feed_id: int) -> dict:
         """
         Retrieves a feed icon.
 
@@ -386,9 +338,11 @@ class Client:
         Raises:
             ClientError: If the request fails.
         """
-        return self.get_feed_icon(feed_id)
+        return await self.get_feed_icon(feed_id)
 
-    def create_feed(self, feed_url: str, category_id: Optional[int] = None, **kwargs) -> int:
+    async def create_feed(
+        self, feed_url: str, category_id: Optional[int] = None, **kwargs
+    ) -> int:
         """
         Create a new feed.
 
@@ -404,16 +358,12 @@ class Client:
         data = dict(feed_url=feed_url, category_id=category_id)
         data.update(kwargs)
 
-        response = self._session.post(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()["feed_id"]
         self._handle_error_response(response)
 
-    def update_feed(self, feed_id: int, **kwargs) -> dict:
+    async def update_feed(self, feed_id: int, **kwargs) -> dict:
         """
         Update a feed.
 
@@ -426,16 +376,12 @@ class Client:
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}")
         data = self._get_modification_params(**kwargs)
-        response = self._session.put(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("put", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def refresh_all_feeds(self) -> bool:
+    async def refresh_all_feeds(self) -> bool:
         """
         Refresh all feeds.
 
@@ -445,12 +391,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/feeds/refresh")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code >= 400:
             self._handle_error_response(response)
         return True
 
-    def refresh_feed(self, feed_id: int) -> bool:
+    async def refresh_feed(self, feed_id: int) -> bool:
         """
         Refreshes a single feed.
 
@@ -462,12 +408,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}/refresh")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code >= 400:
             self._handle_error_response(response)
         return True
 
-    def refresh_category(self, category_id: int) -> bool:
+    async def refresh_category(self, category_id: int) -> bool:
         """
         Refreshes all feeds that belongs to the given category.
 
@@ -479,12 +425,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}/refresh")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code >= 400:
             self._handle_error_response(response)
         return True
 
-    def delete_feed(self, feed_id: int) -> None:
+    async def delete_feed(self, feed_id: int) -> None:
         """
         Delete a feed.
 
@@ -494,11 +440,11 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}")
-        response = self._session.delete(endpoint, timeout=self._timeout)
+        response = await self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    def get_feed_entry(self, feed_id: int, entry_id: int) -> dict:
+    async def get_feed_entry(self, feed_id: int, entry_id: int) -> dict:
         """
         Fetch a single entry for a given feed.
 
@@ -511,12 +457,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}/entries/{entry_id}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_feed_entries(self, feed_id: int, **kwargs) -> dict:
+    async def get_feed_entries(self, feed_id: int, **kwargs) -> dict:
         """
         Fetch all entries that belongs to the given feed.
 
@@ -529,16 +475,12 @@ class Client:
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}/entries")
         params = self._get_params(**kwargs)
-        response = self._session.get(
-            endpoint,
-            params=params,
-            timeout=self._timeout,
-        )
+        response = await self._request("get", endpoint, params=params)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def import_entry(
+    async def import_entry(
         self,
         feed_id: int,
         url: str,
@@ -548,7 +490,7 @@ class Client:
         published_at: Optional[int] = None,
         status: Optional[str] = None,
         starred: Optional[bool] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list] = None,
         external_id: Optional[str] = None,
         comments_url: Optional[str] = None,
     ) -> dict:
@@ -592,32 +534,26 @@ class Client:
             }
         )
 
-        response = self._session.post(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=json.dumps(data))
         if response.status_code in (200, 201):
             return response.json()
         self._handle_error_response(response)
 
-    def mark_feed_entries_as_read(self, feed_id: int) -> None:
+    async def mark_feed_entries_as_read(self, feed_id: int) -> None:
         """
         Mark all entries as read in the given feed.
 
         Args:
             feed_id (int): The feed ID.
-        Returns:
-            A list of dictionaries representing the entries.
         Raises:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/feeds/{feed_id}/mark-all-as-read")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    def get_entry(self, entry_id: int) -> dict:
+    async def get_entry(self, entry_id: int) -> dict:
         """
         Fetch a single entry.
 
@@ -629,12 +565,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/entries/{entry_id}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_entries(self, **kwargs) -> dict:
+    async def get_entries(self, **kwargs) -> dict:
         """
         Fetch all entries.
 
@@ -645,16 +581,14 @@ class Client:
         """
         endpoint = self._get_endpoint("/entries")
         params = self._get_params(**kwargs)
-        response = self._session.get(
-            endpoint,
-            params=params,
-            timeout=self._timeout,
-        )
+        response = await self._request("get", endpoint, params=params)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def update_entry(self, entry_id: int, title: Optional[str] = None, content: Optional[str] = None) -> dict:
+    async def update_entry(
+        self, entry_id: int, title: Optional[str] = None, content: Optional[str] = None
+    ) -> dict:
         """
         Update an entry.
 
@@ -674,16 +608,12 @@ class Client:
                 "content": content,
             }
         )
-        response = self._session.put(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("put", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def update_entries(self, entry_ids: List[int], status: str) -> bool:
+    async def update_entries(self, entry_ids: list, status: str) -> bool:
         """
         Change the status of multiple entries.
 
@@ -697,16 +627,12 @@ class Client:
         """
         endpoint = self._get_endpoint("/entries")
         data = {"entry_ids": entry_ids, "status": status}
-        response = self._session.put(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("put", endpoint, data=json.dumps(data))
         if response.status_code >= 400:
             self._handle_error_response(response)
         return True
 
-    def fetch_entry_content(self, entry_id: int) -> dict:
+    async def fetch_entry_content(self, entry_id: int) -> dict:
         """
         Scrape the entry original URL and returns the content.
 
@@ -718,12 +644,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/entries/{entry_id}/fetch-content")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def toggle_bookmark(self, entry_id: int) -> bool:
+    async def toggle_bookmark(self, entry_id: int) -> bool:
         """
         Star or unstar an entry.
 
@@ -735,12 +661,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/entries/{entry_id}/bookmark")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code >= 400:
             self._handle_error_response(response)
         return True
 
-    def save_entry(self, entry_id: int) -> bool:
+    async def save_entry(self, entry_id: int) -> bool:
         """
         Send an entry to a third-party service if enabled.
 
@@ -752,12 +678,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/entries/{entry_id}/save")
-        response = self._session.post(endpoint, timeout=self._timeout)
+        response = await self._request("post", endpoint)
         if response.status_code != 202:
             self._handle_error_response(response)
         return True
 
-    def get_enclosure(self, enclosure_id: int) -> dict:
+    async def get_enclosure(self, enclosure_id: int) -> dict:
         """
         Fetch an enclosure.
 
@@ -769,12 +695,14 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/enclosures/{enclosure_id}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def update_enclosure(self, enclosure_id: int, media_progression: Optional[int] = None) -> bool:
+    async def update_enclosure(
+        self, enclosure_id: int, media_progression: Optional[int] = None
+    ) -> bool:
         """
         Update an enclosure.
 
@@ -788,16 +716,12 @@ class Client:
         """
         endpoint = self._get_endpoint(f"/enclosures/{enclosure_id}")
         data = self._get_modification_params(media_progression=media_progression)
-        response = self._session.put(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("put", endpoint, data=json.dumps(data))
         if response.status_code != 204:
             self._handle_error_response(response)
         return True
 
-    def get_categories(self) -> List[dict]:
+    async def get_categories(self) -> list:
         """
         Fetch all categories.
 
@@ -807,12 +731,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/categories")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_category_entry(self, category_id: int, entry_id: int) -> dict:
+    async def get_category_entry(self, category_id: int, entry_id: int) -> dict:
         """
         Fetch a single entry for a given category.
 
@@ -825,12 +749,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}/entries/{entry_id}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_category_entries(self, category_id: int, **kwargs) -> dict:
+    async def get_category_entries(self, category_id: int, **kwargs) -> dict:
         """
         Fetch all entries for a given category.
 
@@ -843,16 +767,12 @@ class Client:
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}/entries")
         params = self._get_params(**kwargs)
-        response = self._session.get(
-            endpoint,
-            params=params,
-            timeout=self._timeout,
-        )
+        response = await self._request("get", endpoint, params=params)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def create_category(self, title: str) -> dict:
+    async def create_category(self, title: str) -> dict:
         """
         Create a new category.
 
@@ -865,16 +785,12 @@ class Client:
         """
         endpoint = self._get_endpoint("/categories")
         data = {"title": title}
-        response = self._session.post(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def update_category(self, category_id: int, title: str) -> dict:
+    async def update_category(self, category_id: int, title: str) -> dict:
         """
         Update a category.
 
@@ -888,16 +804,12 @@ class Client:
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}")
         data = {"id": category_id, "title": title}
-        response = self._session.put(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("put", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def delete_category(self, category_id: int) -> None:
+    async def delete_category(self, category_id: int) -> None:
         """
         Delete a category.
 
@@ -907,11 +819,11 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}")
-        response = self._session.delete(endpoint, timeout=self._timeout)
+        response = await self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    def mark_category_entries_as_read(self, category_id: int) -> None:
+    async def mark_category_entries_as_read(self, category_id: int) -> None:
         """
         Mark all entries as read in the given category.
 
@@ -921,11 +833,11 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/categories/{category_id}/mark-all-as-read")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    def get_users(self) -> List[dict]:
+    async def get_users(self) -> list:
         """
         Fetch all users.
 
@@ -935,12 +847,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/users")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_user_by_id(self, user_id: int) -> dict:
+    async def get_user_by_id(self, user_id: int) -> dict:
         """
         Fetch a user by its ID.
 
@@ -951,9 +863,9 @@ class Client:
         Raises:
             ClientError: If the request fails.
         """
-        return self._get_user(user_id)
+        return await self._get_user(user_id)
 
-    def get_user_by_username(self, username: str) -> dict:
+    async def get_user_by_username(self, username: str) -> dict:
         """
         Fetch a user by its username.
 
@@ -964,16 +876,18 @@ class Client:
         Raises:
             ClientError: If the request fails.
         """
-        return self._get_user(username)
+        return await self._get_user(username)
 
-    def _get_user(self, user_id_or_username: Union[str, int]) -> dict:
+    async def _get_user(self, user_id_or_username: Union[str, int]) -> dict:
         endpoint = self._get_endpoint(f"/users/{user_id_or_username}")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def create_user(self, username: str, password: str, is_admin: bool = False) -> dict:
+    async def create_user(
+        self, username: str, password: str, is_admin: bool = False
+    ) -> dict:
         """
         Create a new user.
 
@@ -988,16 +902,12 @@ class Client:
         """
         endpoint = self._get_endpoint("/users")
         data = {"username": username, "password": password, "is_admin": is_admin}
-        response = self._session.post(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def update_user(self, user_id: int, **kwargs) -> dict:
+    async def update_user(self, user_id: int, **kwargs) -> dict:
         """
         Update a user.
 
@@ -1010,16 +920,12 @@ class Client:
         """
         endpoint = self._get_endpoint(f"/users/{user_id}")
         data = self._get_modification_params(**kwargs)
-        response = self._session.put(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("put", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def delete_user(self, user_id: int) -> None:
+    async def delete_user(self, user_id: int) -> None:
         """
         Remove a user.
 
@@ -1029,11 +935,11 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/users/{user_id}")
-        response = self._session.delete(endpoint, timeout=self._timeout)
+        response = await self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    def mark_user_entries_as_read(self, user_id: int) -> None:
+    async def mark_user_entries_as_read(self, user_id: int) -> None:
         """
         Mark all entries as read for a given user.
 
@@ -1043,11 +949,11 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/users/{user_id}/mark-all-as-read")
-        response = self._session.put(endpoint, timeout=self._timeout)
+        response = await self._request("put", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
 
-    def get_feed_counters(self) -> dict:
+    async def get_feed_counters(self) -> dict:
         """
         Get the number of read and unread entries per feed.
 
@@ -1057,12 +963,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/feeds/counters")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def get_integrations_status(self) -> bool:
+    async def get_integrations_status(self) -> bool:
         """
         Get the status of third-party integrations.
 
@@ -1072,12 +978,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/integrations/status")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()["has_integrations"]
         self._handle_error_response(response)
 
-    def get_api_keys(self) -> List[dict]:
+    async def get_api_keys(self) -> list:
         """
         Get all API keys for the current user.
 
@@ -1087,12 +993,12 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint("/api-keys")
-        response = self._session.get(endpoint, timeout=self._timeout)
+        response = await self._request("get", endpoint)
         if response.status_code == 200:
             return response.json()
         self._handle_error_response(response)
 
-    def create_api_key(self, description: str) -> dict:
+    async def create_api_key(self, description: str) -> dict:
         """
         Create a new API key.
 
@@ -1105,16 +1011,12 @@ class Client:
         """
         endpoint = self._get_endpoint("/api-keys")
         data = {"description": description}
-        response = self._session.post(
-            endpoint,
-            data=json.dumps(data),
-            timeout=self._timeout,
-        )
+        response = await self._request("post", endpoint, data=json.dumps(data))
         if response.status_code == 201:
             return response.json()
         self._handle_error_response(response)
 
-    def delete_api_key(self, api_key_id: int) -> None:
+    async def delete_api_key(self, api_key_id: int) -> None:
         """
         Delete an API key.
 
@@ -1124,12 +1026,6 @@ class Client:
             ClientError: If the request fails.
         """
         endpoint = self._get_endpoint(f"/api-keys/{api_key_id}")
-        response = self._session.delete(endpoint, timeout=self._timeout)
+        response = await self._request("delete", endpoint)
         if response.status_code != 204:
             self._handle_error_response(response)
-
-    def close(self) -> None:
-        """
-        Close the underlying session
-        """
-        self._session.close()
